@@ -113,7 +113,7 @@ uint8_t MS5611_address = 0x77;             //The I2C address of the MS5611 barom
 uint8_t compass_address = 0x1E;            //The I2C address of the HMC5883L is 0x1E in hexadecimal form.
 */
 
-//Create an instance for channel_1 on pin PA20 in inverted mode
+//Create an instance for pwm_1 on pin PA20 in inverted mode
 DimmerZero pwm_1(4,false);
 //Create an instance for pwm_2 on pin PA21 in inverted mode
 DimmerZero pwm_2(2,false);
