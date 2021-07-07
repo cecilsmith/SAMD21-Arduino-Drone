@@ -31,6 +31,7 @@ Credit to Joop Brokking for the majority of the software used. For general build
   BNO055 IMU: https://www.bosch-sensortec.com/media/boschsensortec/downloads/application_notes_1/bst-bno055-an007.pdf
 
 
+**Only Tested on MKR WiFi 1010 Board**
 
-Pinout Info:
+MKR WiFi 1010 Pinout Info:
 ~TBA~
