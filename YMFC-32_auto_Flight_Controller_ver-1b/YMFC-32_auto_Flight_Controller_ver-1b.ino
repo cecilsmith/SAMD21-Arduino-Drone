@@ -15,9 +15,71 @@
 //are 100% certain of what you are doing.
 ///////////////////////////////////////////////////////////////////////////////////////
 
-#include <EEPROM.h>
+
+#include <Arduino.h>
+#include <FlashAsEEPROM.h>
 #include <Wire.h>                          //Include the Wire.h library so we can communicate with the gyro.
-TwoWire HWire (2, I2C_FAST_MODE);          //Initiate I2C port 2 at 400kHz.
+//TwoWire Wire (2, I2C_FAST_MODE);          //Initiate I2C port 2 at 400kHz.
+
+#include "wiring_private.h"
+#include <DimmerZero.h>
+
+#include <TFMPlus.h>  // Include TFMini Plus Library v1.4.2
+TFMPlus tfmP;         // Create a TFMini Plus object
+
+
+// OLED Display
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// The pins for I2C are defined by the Wire-library. 
+// On an arduino UNO:       A4(SDA), A5(SCL)
+// On an arduino MEGA 2560: 20(SDA), 21(SCL)
+// On an arduino LEONARDO:   2(SDA),  3(SCL), ...
+#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// BNO055 9 axis imu
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+
+//UART assignment to pins 0 and 1
+Uart Serial10 (&sercom3, 1, 0, SERCOM_RX_PAD_1, UART_TX_PAD_0); // Create the new UART instance assigning it to pin 1 and 0
+
+double xPos = 0, yPos = 0, headingVel = 0;
+uint16_t BNO055_SAMPLERATE_DELAY_MS = 20; //how often to read data from the board
+uint16_t PRINT_DELAY_MS = 1000; // how often to print the data
+uint16_t printCount = 0; //counter to avoid printing every 10MS sample
+
+//velocity = accel*dt (dt in seconds)
+//position = 0.5*accel*dt^2
+double ACCEL_VEL_TRANSITION =  (double)(BNO055_SAMPLERATE_DELAY_MS) / 1000.0;
+double ACCEL_POS_TRANSITION = 0.5 * ACCEL_VEL_TRANSITION * ACCEL_VEL_TRANSITION;
+double DEG_2_RAD = 0.01745329251; //trig functions require radians, BNO055 outputs degrees
+
+// Check I2C device address and correct line below (by default address is 0x29 or 0x28)
+//                                   id, address
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
+
+// GPS
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h> //http://librarymanager/All#SparkFun_u-blox_GNSS
+SFE_UBLOX_GNSS myGNSS;
+
+//Create an instance for pwm_1 on pin PA20 in inverted mode
+DimmerZero pwm_1(4,false);
+//Create an instance for pwm_2 on pin PA21 in inverted mode
+DimmerZero pwm_2(2,false);
+//Create an instance for pwm_1 on pin PA16 in inverted mode
+DimmerZero pwm_3(6,false);
+//Create an instance for pwm_2 on pin PA17 in inverted mode
+DimmerZero pwm_4(7,false);
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
@@ -79,11 +141,11 @@ uint8_t check_byte, flip32, start;
 uint8_t error, error_counter, error_led;
 uint8_t flight_mode, flight_mode_counter, flight_mode_led;
 uint8_t takeoff_detected, manual_altitude_change;
-uint8_t telemetry_send_byte, telemetry_bit_counter, telemetry_loop_counter;
+//uint8_t telemetry_send_byte, telemetry_bit_counter, telemetry_loop_counter;
 uint8_t channel_select_counter;
 uint8_t level_calibration_on;
 
-uint32_t telemetry_buffer_byte;
+//uint32_t telemetry_buffer_byte;
 
 int16_t esc_1, esc_2, esc_3, esc_4;
 int16_t manual_throttle;
@@ -173,15 +235,105 @@ uint16_t setting_click_counter;
 uint8_t previous_channel_6;
 float adjustable_setting_1, adjustable_setting_2, adjustable_setting_3;
 
+//New variables
+//IMU event variables
+sensors_event_t orientationData , angVelocityData , linearAccelData, magnetometerData, accelerometerData, gravityData;
+
+// Lidar variables
+int16_t tfDist = 0;    // Distance to object in centimeters
+int16_t tfFlux = 0;    // Strength or quality of return signal
+int16_t tfTemp = 0;    // Internal temperature of Lidar sensor chip
+
+//GPS variables
+long latitude;
+long longitude;
+long altitude;
+byte SIV;
+
+//PWM control variables
+int periodCounts;
+int periodTimeMs;
+int minPulseValue;
+int maxPulseValue;
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
-  pinMode(4, INPUT_ANALOG);                                     //This is needed for reading the analog value of port A4.
+  //Added Setup
+  tfmP.begin(&Serial1);   // Initialize device library object and pass device serial port to the object.
+
+  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+#if HAS_SERIAL
+    Serial.println(F("SSD1306 allocation failed"));
+#endif
+    for(;;); // Don't proceed, loop forever
+  }
+
+  // Show initial display buffer contents on the screen --
+  // the library initializes this with an Adafruit splash screen.
+  display.display();
+
+  /* Initialise the IMU */
+  if (!bno.begin())
+  {
+#if HAS_SERIAL
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+#endif
+    while (1);
+  }
+
+  if (myGNSS.begin() == false) //Connect to the u-blox module using Wire port
+  {
+#if HAS_SERIAL
+    Serial.println(F("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing."));
+#endif
+    while (1);
+  }
+
+  myGNSS.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
+  myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
+
+  // Initialize serial port for remote control
+  pinPeripheral(1, PIO_SERCOM); //Assign RX function to pin 1
+  pinPeripheral(0, PIO_SERCOM); //Assign TX function to pin 0
+
+  Serial10.begin(115200); //Start secondary serial (for UART)
+  Serial1.begin(112500);
+
+
+  // Initialize PWM
+  //change frequnecy to 250Hz for all channels
+  pwm_1.setFrequency(50);
+  pwm_2.setFrequency(50);
+  pwm_3.setFrequency(50);
+  pwm_4.setFrequency(50);
+
+  //initialize channels
+  pwm_1.init();
+  pwm_2.init();
+  pwm_3.init();
+  pwm_4.init();
+
+  periodCounts = pwm_1.getMaxValue();
+  periodTimeMs = 20;
+  maxPulseValue = periodCounts/20*2;  //1500
+  minPulseValue = periodCounts/20;    //750
+  pwm_1.setValue(minPulseValue);
+  pwm_2.setValue(minPulseValue);
+  pwm_3.setValue(minPulseValue);
+  pwm_4.setValue(minPulseValue);
+
+  //////////////////////////////////////////////////////////////////
+  
+  //pinMode(4, INPUT_ANALOG);                                     //This is needed for reading the analog value of port A4.
   //Port PB3 and PB4 are used as JTDO and JNTRST by default.
   //The following function connects PB3 and PB4 to the
   //alternate output function.
-  afio_cfg_debug_ports(AFIO_DEBUG_SW_ONLY);                     //Connects PB3 and PB4 to output function.
+  //LEDS
+  /*afio_cfg_debug_ports(AFIO_DEBUG_SW_ONLY);                     //Connects PB3 and PB4 to output function.
 
   pinMode(PB3, OUTPUT);                                         //Set PB3 as output for green LED.
   pinMode(PB4, OUTPUT);                                         //Set PB4 as output for red LED.
@@ -189,9 +341,10 @@ void setup() {
   digitalWrite(STM32_board_LED, HIGH);                          //Turn the LED on the STM32 off. The LED function is inverted. Check the STM32 schematic.
 
   green_led(LOW);                                               //Set output PB3 low.
-  red_led(HIGH);                                                //Set output PB4 high.
+  red_led(HIGH);                                                //Set output PB4 high.*/
 
-  pinMode(PB0, OUTPUT);                                         //Set PB0 as output for telemetry TX.
+  //Remote control interface
+  //pinMode(PB0, OUTPUT);                                         //Set PB0 as output for telemetry TX.
 
   //EEPROM emulation setup
   EEPROM.PageBase0 = 0x801F000;
@@ -207,9 +360,9 @@ void setup() {
   gps_setup();                                                  //Set the baud rate and output refreshrate of the GPS module.
 
   //Check if the MPU-6050 is responding.
-  HWire.begin();                                                //Start the I2C as master
-  HWire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
-  error = HWire.endTransmission();                              //End the transmission and register the exit status.
+  Wire.begin();                                                //Start the I2C as master
+  Wire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
+  error = Wire.endTransmission();                              //End the transmission and register the exit status.
   while (error != 0) {                                          //Stay in this loop because the MPU-6050 did not responde.
     error = 1;                                                  //Set the error status to 1.
     error_signal();                                             //Show the error via the red LED.
@@ -217,8 +370,8 @@ void setup() {
   }
 
   //Check if the compass is responding.
-  HWire.beginTransmission(compass_address);                     //Start communication with the HMC5883L.
-  error = HWire.endTransmission();                              //End the transmission and register the exit status.
+  Wire.beginTransmission(compass_address);                     //Start communication with the HMC5883L.
+  error = Wire.endTransmission();                              //End the transmission and register the exit status.
   while (error != 0) {                                          //Stay in this loop because the HMC5883L did not responde.
     error = 2;                                                  //Set the error status to 2.
     error_signal();                                             //Show the error via the red LED.
@@ -226,8 +379,8 @@ void setup() {
   }
 
   //Check if the MS5611 barometer is responding.
-  HWire.beginTransmission(MS5611_address);                      //Start communication with the MS5611.
-  error = HWire.endTransmission();                              //End the transmission and register the exit status.
+  Wire.beginTransmission(MS5611_address);                      //Start communication with the MS5611.
+  error = Wire.endTransmission();                              //End the transmission and register the exit status.
   while (error != 0) {                                          //Stay in this loop because the MS5611 did not responde.
     error = 3;                                                  //Set the error status to 2.
     error_signal();                                             //Show the error via the red LED.
@@ -273,12 +426,12 @@ void setup() {
   //For calculating the pressure the 6 calibration values need to be polled from the MS5611.
   //These 2 byte values are stored in the memory location 0xA2 and up.
   for (start = 1; start <= 6; start++) {
-    HWire.beginTransmission(MS5611_address);                    //Start communication with the MPU-6050.
-    HWire.write(0xA0 + start * 2);                              //Send the address that we want to read.
-    HWire.endTransmission();                                    //End the transmission.
+    Wire.beginTransmission(MS5611_address);                    //Start communication with the MPU-6050.
+    Wire.write(0xA0 + start * 2);                              //Send the address that we want to read.
+    Wire.endTransmission();                                    //End the transmission.
 
-    HWire.requestFrom(MS5611_address, 2);                       //Request 2 bytes from the MS5611.
-    C[start] = HWire.read() << 8 | HWire.read();                //Add the low and high byte to the C[x] calibration variable.
+    Wire.requestFrom(MS5611_address, 2);                       //Request 2 bytes from the MS5611.
+    C[start] = Wire.read() << 8 | Wire.read();                //Add the low and high byte to the C[x] calibration variable.
   }
 
   OFF_C2 = C[2] * pow(2, 16);                                   //This value is pre-calculated to offload the main program loop.
@@ -479,7 +632,7 @@ void loop() {
   TIMER4_BASE->CCR4 = esc_4;                                                       //Set the throttle receiver input pulse to the ESC 4 output pulse.
   TIMER4_BASE->CNT = 5000;                                                         //This will reset timer 4 and the ESC pulses are directly created.
 
-  send_telemetry_data();                                                           //Send telemetry data to the ground station.
+  //send_telemetry_data();                                                           //Send telemetry data to the ground station.
 
   //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
   //Because of the angle calculation the loop time is getting very important. If the loop time is
@@ -491,4 +644,45 @@ void loop() {
   if (micros() - loop_timer > 4050)error = 2;                                      //Output an error if the loop time exceeds 4050us.
   while (micros() - loop_timer < 4000);                                            //We wait until 4000us are passed.
   loop_timer = micros();                                                           //Set the timer for the next loop.
+}
+
+bool getStickPositions() {
+  if (Serial10.available()) {
+    int h = Serial10.read();
+    //sprintf(str, "%x, ", h);
+    if (h == 0x04) {
+      rfFirstChar=true;
+      cnt=0;
+    } else {
+      if (rfFirstChar) {
+        if ((cnt == 0) && (h == 0xdc)) {
+          rfFlag=true;
+        } else {
+          rfFlag=false;
+        }
+      }
+      rfFirstChar=false;
+    }
+    if (rfFlag) {
+      input[cnt+1] = h;
+      cnt++;
+    }
+    if (cnt == 31) {
+      rfFlag=false;
+      for (int i=0; i<4; i++) {
+        pos[i] = input[21+i*2] + input[21+i*2+1] * 256;
+      }
+      sprintf(str, "%d, %d, %d, %d ", pos[0],pos[1],pos[2],pos[3]);
+      //Serial.print(str);
+      //Serial.println("");
+      return true;
+    }
+   }
+   return false;
+}
+
+// Attach the interrupt handler to the SERCOM
+void SERCOM3_Handler() {
+
+  Serial10.IrqHandler();
 }
