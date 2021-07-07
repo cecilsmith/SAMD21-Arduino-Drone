@@ -84,6 +84,7 @@ int16_t loop_counter;
 uint8_t data, start, warning;
 int16_t acc_axis[4], gyro_axis[4] , temperature;
 int32_t gyro_axis_cal[4], acc_axis_cal[4];
+int32_t orientation[3];
 int32_t cal_int;
 int32_t channel_1_start, channel_1;
 int32_t channel_2_start, channel_2;
@@ -393,6 +394,10 @@ void loop() {
     delay(2500);
     check_motor_vibrations();
   }
+
+  if (data == '6') {
+    gyro_signalen();
+  }
 }
 
 void gyro_signalen(void) {
@@ -426,16 +431,35 @@ void gyro_signalen(void) {
     gyro_axis[2] -= gyro_axis_cal[2];                            //Subtact the manual gyro pitch calibration value.
     gyro_axis[3] -= gyro_axis_cal[3];                            //Subtact the manual gyro yaw calibration value.
   }
+  orientation[0] = orientationData.orientation.x;
+  orientation[2] = orientationData.orientation.y;
+  orientation[3] = orientationData.orientation.z;
+
+/*
+  Serial.print(orientationData.orientation.x);Serial.print(", ");
+  Serial.print(magnetometerData.magnetic.x);Serial.print(", ");
+  Serial.print(orientationData.orientation.y);Serial.print(", ");
+  //Serial.print(magnetometerData.magnetic.y);Serial.print(", ");
+  Serial.print(orientationData.orientation.z);
+  //Serial.print(magnetometerData.magnetic.z);Serial.print(", ");
   Serial.println("gyro update called");
+*/
+  //Serial.print("*");
 }
-  /*void red_led(int8_t level) {
-    if (flip32)digitalWrite(PB4, !level);
-    else digitalWrite(PB4, level);
+
+void red_led(int8_t level) {
+  if (level) {
+    
+  } else {
+    
   }
-  void green_led(int8_t level) {
-    if (flip32)digitalWrite(PB3, !level);
-    else digitalWrite(PB3, level);
-  }*/
+}
+
+void green_led(int8_t level) {
+  if (flip32)digitalWrite(PB3, !level);
+  else digitalWrite(PB3, level);
+}
+  
 bool getStickPositions() {
   if (Serial10.available()) {
     int h = Serial10.read();
