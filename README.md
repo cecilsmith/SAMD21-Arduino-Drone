@@ -23,6 +23,8 @@ This program utilizes IMU, GPS, and LiDAR data to fly an Arduino based drone on 
   * BNO055 (IMU): https://github.com/adafruit/Adafruit_BNO055
 
   * Adafruit Sensor Library: https://github.com/adafruit/Adafruit_Sensor
+  
+  * FlashStorage (EEPROM emulation): https://github.com/cmaglie/FlashStorage
 
  
 
