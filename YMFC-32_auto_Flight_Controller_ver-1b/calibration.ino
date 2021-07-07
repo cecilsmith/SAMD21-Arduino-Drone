@@ -3,10 +3,10 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void calibrate_compass(void) {
   compass_calibration_on = 1;                                                //Set the compass_calibration_on variable to disable the adjustment of the raw compass values.
-  red_led(HIGH);                                                             //The red led will indicate that the compass calibration is active.
-  green_led(LOW);                                                            //Turn off the green led as we don't need it.
+  //red_led(HIGH);                                                             //The red led will indicate that the compass calibration is active.
+  //green_led(LOW);                                                            //Turn off the green led as we don't need it.
   while (channel_2 < 1900) {                                                 //Stay in this loop until the pilot lowers the pitch stick of the transmitter.
-    send_telemetry_data();                                                   //Send telemetry data to the ground station.
+    //send_telemetry_data();                                                   //Send telemetry data to the ground station.
     delayMicroseconds(3700);                                                 //Simulate a 250Hz program loop.
     read_compass();                                                          //Read the raw compass values.
     //In the following lines the maximum and minimum compass values are detected and stored.
@@ -26,13 +26,13 @@ void calibrate_compass(void) {
   read_compass();                                                            //Read and calculate the compass data.
   angle_yaw = actual_compass_heading;                                        //Set the initial compass heading.
 
-  red_led(LOW);
+  //red_led(LOW);
   for (error = 0; error < 15; error ++) {
-    green_led(HIGH);
+    /*green_led(HIGH);
     delay(50);
     green_led(LOW);
     delay(50);
-  }
+  */}
 
   error = 0;
 
@@ -43,18 +43,18 @@ void calibrate_compass(void) {
 void calibrate_level(void) {
   level_calibration_on = 1;
 
-  while (channel_2 < 1100) {
+  /*while (channel_2 < 1100) {
     send_telemetry_data();                                                   //Send telemetry data to the ground station.
     delay(10);
-  }
-  red_led(HIGH);
-  green_led(LOW);
+  }*/
+  /*red_led(HIGH);
+  green_led(LOW);*/
 
   acc_pitch_cal_value = 0;
   acc_roll_cal_value = 0;
 
   for (error = 0; error < 64; error ++) {
-    send_telemetry_data();                                                   //Send telemetry data to the ground station.
+    //send_telemetry_data();                                                   //Send telemetry data to the ground station.
     gyro_signalen();
     acc_pitch_cal_value += acc_y;
     acc_roll_cal_value += acc_x;
@@ -72,10 +72,10 @@ void calibrate_level(void) {
     EEPROM.write(0x17, acc_roll_cal_value);
     //EEPROM.write(0x10 + error, compass_cal_values[error]);
     for (error = 0; error < 15; error ++) {
-      green_led(HIGH);
+      /*green_led(HIGH);
       delay(50);
       green_led(LOW);
-      delay(50);
+      delay(50);*/
     }
     error = 0;
   }
@@ -95,5 +95,3 @@ void calibrate_level(void) {
   angle_roll = angle_roll_acc;
   loop_timer = micros();                                                           //Set the timer for the next loop.
 }
-
-

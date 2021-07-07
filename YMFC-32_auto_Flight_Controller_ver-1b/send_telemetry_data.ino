@@ -2,7 +2,7 @@
 //This part sends the telemetry data to the ground station.
 //The output for the serial monitor is PB0. Protocol is 1 start bit, 8 data bits, no parity, 1 stop bit.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void send_telemetry_data(void) {
+/*void send_telemetry_data(void) {
   telemetry_loop_counter++;                                                                 //Increment the telemetry_loop_counter variable.
   if (telemetry_loop_counter == 1)telemetry_send_byte = 'J';                                //Send a J as start signature.
   if (telemetry_loop_counter == 2)telemetry_send_byte = 'B';                                //Send a B as start signature.
@@ -96,4 +96,4 @@ void send_telemetry_data(void) {
     //Send a stop bit
     GPIOB_BASE->BSRR = 0b1 << 0;                                                              //Set output PB0 to 1;
   }
-}
+}*/
