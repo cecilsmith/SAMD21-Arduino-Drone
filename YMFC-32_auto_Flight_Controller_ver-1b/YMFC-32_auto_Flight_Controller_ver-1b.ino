@@ -15,6 +15,8 @@
 //are 100% certain of what you are doing.
 ///////////////////////////////////////////////////////////////////////////////////////
 
+//USE ANALOG PORT 4 (A4) FOR BATTERY VOLTAGE READING
+
 #define HAS_SERIAL 1  // change to zero when ready to fly, only used for debug
 
 #include <Arduino.h>
@@ -167,7 +169,7 @@ int32_t gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal;
 int16_t acc_pitch_cal_value;
 int16_t acc_roll_cal_value;
 
-int32_t acc_z_average_short_total, acc_z_average_long_total, acc_z_average_total ;
+int32_t acc_z_average_short_total, acc_z_average_long_total, acc_z_average_total;
 int16_t acc_z_average_short[26], acc_z_average_long[51];
 
 uint8_t acc_z_average_short_rotating_mem_location, acc_z_average_long_rotating_mem_location;
@@ -182,15 +184,16 @@ float pid_i_mem_roll, pid_roll_setpoint, gyro_roll_input, pid_output_roll, pid_l
 float pid_i_mem_pitch, pid_pitch_setpoint, gyro_pitch_input, pid_output_pitch, pid_last_pitch_d_error;
 float pid_i_mem_yaw, pid_yaw_setpoint, gyro_yaw_input, pid_output_yaw, pid_last_yaw_d_error;
 float angle_roll_acc, angle_pitch_acc, angle_pitch, angle_roll, angle_yaw;
+float last_angle_roll=0, last_angle_pitch=0, last_angle_yaw=0;
 float battery_voltage, dummy_float;
 
 //Compass variables
 uint8_t compass_calibration_on, heading_lock;
-int16_t compass_x, compass_y, compass_z;
-int16_t compass_cal_values[6];
+//int16_t /compass_x, compass_y, compass_z;
+/*int16_t compass_cal_values[6];
 float compass_x_horizontal, compass_y_horizontal, actual_compass_heading;
 float compass_scale_y, compass_scale_z;
-int16_t compass_offset_x, compass_offset_y, compass_offset_z;
+int16_t compass_offset_x, compass_offset_y, compass_offset_z;*/
 float course_a, course_b, course_c, base_course_mirrored, actual_course_mirrored;
 float course_lock_heading, heading_lock_course_deviation;
 
@@ -339,12 +342,12 @@ void setup() {
   //The following function connects PB3 and PB4 to the
   //alternate output function.
   //LEDS
-  /*afio_cfg_debug_ports(AFIO_DEBUG_SW_ONLY);                     //Connects PB3 and PB4 to output function.
+  //afio_cfg_debug_ports(AFIO_DEBUG_SW_ONLY);                     //Connects PB3 and PB4 to output function.
 
-  pinMode(PB3, OUTPUT);                                         //Set PB3 as output for green LED.
-  pinMode(PB4, OUTPUT);                                         //Set PB4 as output for red LED.
-  pinMode(STM32_board_LED, OUTPUT);                             //This is the LED on the STM32 board. Used for GPS indication.
-  digitalWrite(STM32_board_LED, HIGH);                          //Turn the LED on the STM32 off. The LED function is inverted. Check the STM32 schematic.
+  pinMode(3, OUTPUT);                                         //Set 3 as output for green LED.
+  pinMode(4, OUTPUT);                                         //Set 4 as output for red LED.
+  //pinMode(STM32_board_LED, OUTPUT);                             //This is the LED on the STM32 board. Used for GPS indication.
+  //digitalWrite(STM32_board_LED, HIGH);                          //Turn the LED on the STM32 off. The LED function is inverted. Check the STM32 schematic.
 
   green_led(LOW);                                               //Set output PB3 low.
   red_led(HIGH);                                                //Set output PB4 high.*/
@@ -498,6 +501,9 @@ void setup() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int lastLidar=0;
 int lastIMU = 0;
+int lastSerial=0;
+
+
 
 void loop() {
   getStickPositions();
@@ -526,15 +532,22 @@ void loop() {
   heading_lock = 0;
   //if (channel_6 > 1200)heading_lock = 1;                                           //If channel 6 is between 1200us and 1600us the flight mode is 2
 
-  flight_mode = 2;                                                                 //In all other situations the flight mode is 1;
+  flight_mode = 2;                                                                   //In all other situations the flight mode is 1;
   //if (channel_5 >= 1200 && channel_5 < 1600)flight_mode = 2;                       //If channel 6 is between 1200us and 1600us the flight mode is 2
   //if (channel_5 >= 1600 && channel_5 < 2100)flight_mode = 3;                       //If channel 6 is between 1600us and 1900us the flight mode is 3
 
   flight_mode_signal();                                                            //Show the flight_mode via the green LED.
   error_signal();                                                                  //Show the error via the red LED.
   if (millis() - lastIMU > BNO055_SAMPLERATE_DELAY_MS) {
+    //65.5 = 1 deg/sec (check the datasheet of the MPU-6050 for more information).
     lastIMU = millis();
-    gyro_signalen();                                                                 //Read the gyro and accelerometer data.
+    gyro_signalen(); 
+    gyro_roll_input = (angle_roll - last_angle_roll) * 20    /*(gyro_roll_input * 0.7) + (((float)gyro_roll / 65.5) * 0.3)*/;   //Gyro pid input is deg/sec.
+    gyro_pitch_input = (angle_pitch - last_angle_pitch) * 20 /*(gyro_pitch_input * 0.7) + (((float)gyro_pitch / 65.5) * 0.3)*/;//Gyro pid input is deg/sec.
+    gyro_yaw_input = (angle_yaw - last_angle_yaw) * 20       /*(gyro_yaw_input * 0.7) + (((float)gyro_yaw / 65.5) * 0.3)*/;      //Gyro pid input is deg/sec.//Read the gyro and accelerometer data.
+    last_angle_roll = angle_roll;
+    last_angle_pitch = angle_pitch;
+    last_angle_yaw = angle_yaw;
   }
   else if (millis() - lastLidar > LIDAR_SAMPLERATE_DELAY_MS)
   {
@@ -547,39 +560,34 @@ void loop() {
   //if (gps_add_counter >= 0)gps_add_counter --;
 
   //read_gps();
-/*
-  //65.5 = 1 deg/sec (check the datasheet of the MPU-6050 for more information).
-  gyro_roll_input = (gyro_roll_input * 0.7) + (((float)gyro_roll / 65.5) * 0.3);   //Gyro pid input is deg/sec.
-  gyro_pitch_input = (gyro_pitch_input * 0.7) + (((float)gyro_pitch / 65.5) * 0.3);//Gyro pid input is deg/sec.
-  gyro_yaw_input = (gyro_yaw_input * 0.7) + (((float)gyro_yaw / 65.5) * 0.3);      //Gyro pid input is deg/sec.
 
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //This is the added IMU code from the videos:
-  //https://youtu.be/4BoIE8YQwM8
-  //https://youtu.be/j-kE0AMEWy4
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
+//code in question
 
   //Gyro angle calculations
   //0.0000611 = 1 / (250Hz / 65.5)
-  angle_pitch += (float)gyro_pitch * 0.0000611;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
-  angle_roll += (float)gyro_roll * 0.0000611;                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
-  angle_yaw += (float)gyro_yaw * 0.0000611;                                        //Calculate the traveled yaw angle and add this to the angle_yaw variable.
+  /*angle_pitch += (float)gyro_pitch * 0.0000611;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
+  angle_roll += (float)gyro_roll * 0.0000611;*/  //redundant code --defined later                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
+  angle_yaw = orientation[0]/*+= (float)gyro_yaw * 0.0000611*/;                                       //Calculate the traveled yaw angle and add this to the angle_yaw variable.
   if (angle_yaw < 0) angle_yaw += 360;                                             //If the compass heading becomes smaller then 0, 360 is added to keep it in the 0 till 360 degrees range.
   else if (angle_yaw >= 360) angle_yaw -= 360;                                     //If the compass heading becomes larger then 360, 360 is subtracted to keep it in the 0 till 360 degrees range.
 
+//unsure
   //0.000001066 = 0.0000611 * (3.142(PI) / 180degr) The Arduino sin function is in radians and not degrees.
   angle_pitch -= angle_roll * sin((float)gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the roll angle to the pitch angel.
   angle_roll += angle_pitch * sin((float)gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the pitch angle to the roll angel.
 
-  angle_yaw -= course_deviation(angle_yaw, actual_compass_heading) / 1200.0;       //Calculate the difference between the gyro and compass heading and make a small correction.
+
+//Good code
+  //angle_yaw -= course_deviation(angle_yaw, actual_compass_heading) / 1200.0;       //Calculate the difference between the gyro and compass heading and make a small correction.
   if (angle_yaw < 0) angle_yaw += 360;                                             //If the compass heading becomes smaller then 0, 360 is added to keep it in the 0 till 360 degrees range.
   else if (angle_yaw >= 360) angle_yaw -= 360;                                     //If the compass heading becomes larger then 360, 360 is subtracted to keep it in the 0 till 360 degrees range.
 
-
+//Good code
   //Accelerometer angle calculations
   acc_total_vector = sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));    //Calculate the total accelerometer vector.
 
+//unsure
   if (abs(acc_y) < acc_total_vector) {                                             //Prevent the asin function to produce a NaN.
     angle_pitch_acc = asin((float)acc_y / acc_total_vector) * 57.296;              //Calculate the pitch angle.
   }
@@ -587,18 +595,36 @@ void loop() {
     angle_roll_acc = asin((float)acc_x / acc_total_vector) * 57.296;               //Calculate the roll angle.
   }
 
-  angle_pitch = angle_pitch * 0.9996 + angle_pitch_acc * 0.0004;                   //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
-  angle_roll = angle_roll * 0.9996 + angle_roll_acc * 0.0004;                      //Correct the drift of the gyro roll angle with the accelerometer roll angle.
+//Questionable
+  angle_pitch = orientation[1]/*angle_pitch * 0.9996 + angle_pitch_acc * 0.0004*/;                   //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
+  angle_roll = orientation[2]/*angle_roll * 0.9996 + angle_roll_acc * 0.0004*/;                      //Correct the drift of the gyro roll angle with the accelerometer roll angle.
 
   pitch_level_adjust = angle_pitch * 15;                                           //Calculate the pitch angle correction.
   roll_level_adjust = angle_roll * 15;                                             //Calculate the roll angle correction.
-*/
 
-  angle_roll = orientation[1];
-  angle_pitch = orientation[2];
-  angle_yaw = orientation[0];
+  /*angle_roll = angle_roll * 0.9996 + orientation[1] * 0.0004;
+  angle_pitch = angle_pitch * 0.9996 + orientation[2] * 0.0004;
+  angle_yaw = angle_yaw * 0.9996 + orientation[0] * 0.0004;*/
   vertical_acceleration_calculations();                                            //Calculate the vertical accelration.
+  if (millis() - lastSerial > 500) {
+    lastSerial = millis();
+    //Check orientation data 
+    Serial.print("Orientation -- Roll: ");
+    Serial.print(orientation[2]);
+    Serial.print(", Pitch: ");
+    Serial.print(orientation[1]);
+    Serial.print(", Yaw: ");
+    Serial.print(orientation[0]);
 
+    Serial.print("     Calculated -- Roll: ");
+    Serial.print(angle_roll);
+    Serial.print(", Pitch: ");
+    Serial.print(angle_pitch);
+    Serial.print(", Yaw: ");
+    Serial.println(angle_yaw);                                                              //Read the gyro and accelerometer data.
+  }
+  
+//End of code in question
 
   pid_roll_setpoint_base = channel_1;                                              //Normally channel_1 is the pid_roll_setpoint input.
   pid_pitch_setpoint_base = channel_2;                                             //Normally channel_2 is the pid_pitch_setpoint input.
@@ -709,7 +735,7 @@ void loop() {
     error = 2;                                      //Output an error if the loop time exceeds 4050us.
   }
 #if HAS_SERIAL
-  Serial.println(micros() - loop_timer);
+  //Serial.println(micros() - loop_timer);
 #endif
   while (micros() - loop_timer < 4000);                                            //We wait until 4000us are passed.
   loop_timer = micros();                                                           //Set the timer for the next loop.

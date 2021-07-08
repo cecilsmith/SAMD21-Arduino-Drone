@@ -5,6 +5,11 @@
 
 int8_t red_level=0, green_level=0;
 void red_led(int8_t level) {
+  if (level) {
+    digitalWrite(3, HIGH);
+  } else {
+    digitalWrite(3, LOW);
+  }
   return;
   display.clearDisplay();
   display.drawRect(0, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
@@ -18,6 +23,11 @@ void red_led(int8_t level) {
   display.display();
 }
 void green_led(int8_t level) {
+  if (level) {
+    digitalWrite(4, HIGH);
+  } else {
+    digitalWrite(4, LOW);
+  }
   return;
   display.clearDisplay();
   display.drawRect(0, 0, display.width()-1, display.height()-1, SSD1306_WHITE);

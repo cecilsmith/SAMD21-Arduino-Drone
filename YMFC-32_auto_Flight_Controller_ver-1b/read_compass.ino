@@ -1,6 +1,7 @@
 
 void read_compass() {
-  Wire.beginTransmission(compass_address);                     //Start communication with the compass.
+  //NEED TO GET COMPASS INFO
+  /*Wire.beginTransmission(compass_address);                     //Start communication with the compass.
   Wire.write(0x03);                                            //We want to start reading at the hexadecimal location 0x03.
   Wire.endTransmission();                                      //End the transmission with the gyro.
 
@@ -9,7 +10,7 @@ void read_compass() {
   compass_y *= -1;                                              //Invert the direction of the axis.
   compass_z = Wire.read() << 8 | Wire.read();                 //Add the low and high byte to the compass_z variable.;
   compass_x = Wire.read() << 8 | Wire.read();                 //Add the low and high byte to the compass_x variable.;
-  compass_x *= -1;                                              //Invert the direction of the axis.
+  compass_x *= -1;                                              //Invert the direction of the axis.*/
 
   //Before the compass can give accurate measurements it needs to be calibrated. At startup the compass_offset and compass_scale
   //variables are calculated. The following part will adjust the raw compas values so they can be used for the calculation of the heading.
@@ -38,12 +39,12 @@ void read_compass() {
 
 //At startup the registers of the compass need to be set. After that the calibration offset and scale values are calculated.
 void setup_compass() {
-  Wire.beginTransmission(compass_address);                     //Start communication with the compass.
+  /*Wire.beginTransmission(compass_address);                     //Start communication with the compass.
   Wire.write(0x00);                                            //We want to write to the Configuration Register A (00 hex).
   Wire.write(0x78);                                            //Set the Configuration Regiser A bits as 01111000 to set sample rate (average of 8 at 75Hz).
   Wire.write(0x20);                                            //Set the Configuration Regiser B bits as 00100000 to set the gain at +/-1.3Ga.
   Wire.write(0x00);                                            //Set the Mode Regiser bits as 00000000 to set Continues-Measurement Mode.
-  Wire.endTransmission();                                      //End the transmission with the compass.
+  Wire.endTransmission();                                      //End the transmission with the compass.*/
 
 //Read the calibration values from the EEPROM.
   for (error = 0; error < 6; error ++)compass_cal_values[error] = EEPROM.read(0x10 + error);
