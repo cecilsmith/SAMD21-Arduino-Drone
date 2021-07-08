@@ -214,7 +214,7 @@ void setup() {
   pinPeripheral(0, PIO_SERCOM); //Assign TX function to pin 0
 
   Serial10.begin(115200); //Start secondary serial (for UART)
-  Serial1.begin(112500);
+  Serial1.begin(115200);
 
 
   // Initialize PWM
