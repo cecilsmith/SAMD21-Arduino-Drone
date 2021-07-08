@@ -15,6 +15,7 @@
 //are 100% certain of what you are doing.
 ///////////////////////////////////////////////////////////////////////////////////////
 
+#define HAS_SERIAL 1  // change to zero when ready to fly, only used for debug
 
 #include <Arduino.h>
 #include <FlashAsEEPROM.h>
@@ -26,6 +27,7 @@
 
 #include <TFMPlus.h>  // Include TFMini Plus Library v1.4.2
 TFMPlus tfmP;         // Create a TFMini Plus object
+uint16_t LIDAR_SAMPLERATE_DELAY_MS = 50; //how often to read data
 
 
 // OLED Display
@@ -75,11 +77,10 @@ SFE_UBLOX_GNSS myGNSS;
 DimmerZero pwm_1(4,false);
 //Create an instance for pwm_2 on pin PA21 in inverted mode
 DimmerZero pwm_2(2,false);
-//Create an instance for pwm_1 on pin PA16 in inverted mode
+//Create an instance for pwm_3 on pin PA16 in inverted mode
 DimmerZero pwm_3(6,false);
-//Create an instance for pwm_2 on pin PA17 in inverted mode
+//Create an instance for pwm_4 on pin PA17 in inverted mode
 DimmerZero pwm_4(7,false);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
@@ -123,7 +124,7 @@ uint8_t compass_address = 0x1E;            //The I2C address of the HMC5883L is 
 
 float low_battery_warning = 10.5;          //Set the battery warning at 10.5V (default = 10.5V).
 
-#define STM32_board_LED PC13               //Change PC13 if the LED on the STM32 is connected to another output.
+//#define STM32_board_LED PC13               //Change PC13 if the LED on the STM32 is connected to another output.
 
 //Tuning parameters/settings is explained in this video: https://youtu.be/ys-YpOaA2ME
 #define variable_1_to_adjust dummy_float   //Change dummy_float to any setting that you want to tune.
@@ -238,6 +239,7 @@ float adjustable_setting_1, adjustable_setting_2, adjustable_setting_3;
 //New variables
 //IMU event variables
 sensors_event_t orientationData , angVelocityData , linearAccelData, magnetometerData, accelerometerData, gravityData;
+int32_t orientation[3];
 
 // Lidar variables
 int16_t tfDist = 0;    // Distance to object in centimeters
@@ -260,7 +262,12 @@ int maxPulseValue;
 //Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
-  //Added Setup
+
+#if HAS_SERIAL
+  Serial.begin(115200);
+  while (!Serial); //Wait for user to open terminal
+  Serial.println("cM Drone code");
+#endif
   tfmP.begin(&Serial1);   // Initialize device library object and pass device serial port to the object.
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -300,9 +307,8 @@ void setup() {
   pinPeripheral(1, PIO_SERCOM); //Assign RX function to pin 1
   pinPeripheral(0, PIO_SERCOM); //Assign TX function to pin 0
 
-  Serial10.begin(115200); //Start secondary serial (for UART)
-  Serial1.begin(112500);
-
+  Serial10.begin(115200); //RC eceiver UART
+  Serial1.begin(112500);  //Lidar UART
 
   // Initialize PWM
   //change frequnecy to 250Hz for all channels
@@ -347,18 +353,21 @@ void setup() {
   //pinMode(PB0, OUTPUT);                                         //Set PB0 as output for telemetry TX.
 
   //EEPROM emulation setup
-  EEPROM.PageBase0 = 0x801F000;
-  EEPROM.PageBase1 = 0x801F800;
-  EEPROM.PageSize  = 0x400;
+  //EEPROM.PageBase0 = 0x801F000;
+  //EEPROM.PageBase1 = 0x801F800;
+  //EEPROM.PageSize  = 0x400;
 
   //Serial.begin(57600);                                        //Set the serial output to 57600 kbps. (for debugging only)
   //delay(250);                                                 //Give the serial port some time to start to prevent data loss.
 
+/*
   timer_setup();                                                //Setup the timers for the receiver inputs and ESC's output.
   delay(50);                                                    //Give the timers some time to start.
-
+*/
+/*
   gps_setup();                                                  //Set the baud rate and output refreshrate of the GPS module.
-
+*/
+/*
   //Check if the MPU-6050 is responding.
   Wire.begin();                                                //Start the I2C as master
   Wire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
@@ -368,7 +377,7 @@ void setup() {
     error_signal();                                             //Show the error via the red LED.
     delay(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
   }
-
+/*
   //Check if the compass is responding.
   Wire.beginTransmission(compass_address);                     //Start communication with the HMC5883L.
   error = Wire.endTransmission();                              //End the transmission and register the exit status.
@@ -377,7 +386,8 @@ void setup() {
     error_signal();                                             //Show the error via the red LED.
     delay(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
   }
-
+*/
+/*
   //Check if the MS5611 barometer is responding.
   Wire.beginTransmission(MS5611_address);                      //Start communication with the MS5611.
   error = Wire.endTransmission();                              //End the transmission and register the exit status.
@@ -386,30 +396,55 @@ void setup() {
     error_signal();                                             //Show the error via the red LED.
     delay(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
   }
+*/
 
+/*
   gyro_setup();                                                 //Initiallize the gyro and set the correct registers.
   setup_compass();                                              //Initiallize the compass and set the correct registers.
   read_compass();                                               //Read and calculate the compass data.
   angle_yaw = actual_compass_heading;                           //Set the initial compass heading.
-
+*/
+  gyro_signalen();
+  angle_yaw = orientation[0];
+#if HAS_SERIAL
+  Serial.print("Yaw angle: ");Serial.println(angle_yaw);
+  Serial.println("5 second calibration delay");
+#endif
   //Create a 5 second delay before calibration.
   for (count_var = 0; count_var < 1250; count_var++) {          //1250 loops of 4 microseconds = 5 seconds.
     if (count_var % 125 == 0) {                                 //Every 125 loops (500ms).
-      digitalWrite(PB4, !digitalRead(PB4));                     //Change the led status.
+      blink_red_led();                                          //Change the led status.
     }
     delay(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
   }
+
+#if HAS_SERIAL
+  Serial.println("Calibrating Gyro");
+#endif
+  
   count_var = 0;                                                //Set start back to 0.
   calibrate_gyro();                                             //Calibrate the gyro offset.
 
+#if HAS_SERIAL
+  Serial.print("Checking RC receiver...");
+#endif
+
   //Wait until the receiver is active.
   while (channel_1 < 990 || channel_2 < 990 || channel_3 < 990 || channel_4 < 990)  {
+    bool status = getStickPositions();
     error = 4;                                                  //Set the error status to 4.
     error_signal();                                             //Show the error via the red LED.
     delay(4);                                                   //Delay 4ms to simulate a 250Hz loop
   }
   error = 0;                                                    //Reset the error status to 0.
 
+#if HAS_SERIAL
+  Serial.print(channel_1);Serial.print(", ");
+  Serial.print(channel_2);Serial.print(", ");
+  Serial.print(channel_3);Serial.print(", ");
+  Serial.print(channel_4);Serial.println("");
+  Serial.println("done");
+#endif
 
   //When everything is done, turn off the led.
   red_led(LOW);                                                 //Set output PB4 low.
@@ -423,6 +458,7 @@ void setup() {
   //The variable battery_voltage holds 1050 if the battery voltage is 10.5V.
   battery_voltage = (float)analogRead(4) / 112.81;
 
+/*
   //For calculating the pressure the 6 calibration values need to be polled from the MS5611.
   //These 2 byte values are stored in the memory location 0xA2 and up.
   for (start = 1; start <= 6; start++) {
@@ -443,6 +479,7 @@ void setup() {
     delay(4);                                                   //The main program loop also runs 250Hz (4ms per loop).
   }
   actual_pressure = 0;                                          //Reset the pressure calculations.
+*/
 
   //Before starting the avarage accelerometer value is preloaded into the variables.
   for (start = 0; start <= 24; start++)acc_z_average_short[start] = acc_z;
@@ -459,14 +496,19 @@ void setup() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Main program loop
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+int lastLidar=0;
+int lastIMU = 0;
+
 void loop() {
+  getStickPositions();
   //Some functions are only accessible when the quadcopter is off.
   if (start == 0) {
     //For compass calibration move both sticks to the top right.
-    if (channel_1 > 1900 && channel_2 < 1100 && channel_3 > 1900 && channel_4 > 1900)calibrate_compass();
+    //if (channel_1 > 1900 && channel_2 < 1100 && channel_3 > 1900 && channel_4 > 1900)calibrate_compass();
     //Level calibration move both sticks to the top left.
-    if (channel_1 < 1100 && channel_2 < 1100 && channel_3 > 1900 && channel_4 < 1100)calibrate_level();
+    //if (channel_1 < 1100 && channel_2 < 1100 && channel_3 > 1900 && channel_4 < 1100)calibrate_level();
     //Change settings
+    /* 
     if (channel_6 >= 1900 && previous_channel_6 == 0) {
       previous_channel_6 = 1;
       if (setting_adjust_timer > millis())setting_click_counter ++;
@@ -478,25 +520,34 @@ void loop() {
       }
     }
     if (channel_6 < 1900)previous_channel_6 = 0;
+    */
   }
 
   heading_lock = 0;
-  if (channel_6 > 1200)heading_lock = 1;                                           //If channel 6 is between 1200us and 1600us the flight mode is 2
+  //if (channel_6 > 1200)heading_lock = 1;                                           //If channel 6 is between 1200us and 1600us the flight mode is 2
 
-  flight_mode = 1;                                                                 //In all other situations the flight mode is 1;
-  if (channel_5 >= 1200 && channel_5 < 1600)flight_mode = 2;                       //If channel 6 is between 1200us and 1600us the flight mode is 2
-  if (channel_5 >= 1600 && channel_5 < 2100)flight_mode = 3;                       //If channel 6 is between 1600us and 1900us the flight mode is 3
+  flight_mode = 2;                                                                 //In all other situations the flight mode is 1;
+  //if (channel_5 >= 1200 && channel_5 < 1600)flight_mode = 2;                       //If channel 6 is between 1200us and 1600us the flight mode is 2
+  //if (channel_5 >= 1600 && channel_5 < 2100)flight_mode = 3;                       //If channel 6 is between 1600us and 1900us the flight mode is 3
 
   flight_mode_signal();                                                            //Show the flight_mode via the green LED.
   error_signal();                                                                  //Show the error via the red LED.
-  gyro_signalen();                                                                 //Read the gyro and accelerometer data.
-  read_barometer();                                                                //Read and calculate the barometer data.
-  read_compass();                                                                  //Read and calculate the compass data.
+  if (millis() - lastIMU > BNO055_SAMPLERATE_DELAY_MS) {
+    lastIMU = millis();
+    gyro_signalen();                                                                 //Read the gyro and accelerometer data.
+  }
+  else if (millis() - lastLidar > LIDAR_SAMPLERATE_DELAY_MS)
+  {
+    lastLidar = millis(); //Update the timer
+    tfmP.getData(tfDist, tfFlux, tfTemp);   // Get data from the lidar
+  }
+  //read_barometer();                                                                //Read and calculate the barometer data.
+  //read_compass();                                                                  //Read and calculate the compass data.
 
-  if (gps_add_counter >= 0)gps_add_counter --;
+  //if (gps_add_counter >= 0)gps_add_counter --;
 
-  read_gps();
-
+  //read_gps();
+/*
   //65.5 = 1 deg/sec (check the datasheet of the MPU-6050 for more information).
   gyro_roll_input = (gyro_roll_input * 0.7) + (((float)gyro_roll / 65.5) * 0.3);   //Gyro pid input is deg/sec.
   gyro_pitch_input = (gyro_pitch_input * 0.7) + (((float)gyro_pitch / 65.5) * 0.3);//Gyro pid input is deg/sec.
@@ -541,8 +592,13 @@ void loop() {
 
   pitch_level_adjust = angle_pitch * 15;                                           //Calculate the pitch angle correction.
   roll_level_adjust = angle_roll * 15;                                             //Calculate the roll angle correction.
+*/
 
+  angle_roll = orientation[1];
+  angle_pitch = orientation[2];
+  angle_yaw = orientation[0];
   vertical_acceleration_calculations();                                            //Calculate the vertical accelration.
+
 
   pid_roll_setpoint_base = channel_1;                                              //Normally channel_1 is the pid_roll_setpoint input.
   pid_pitch_setpoint_base = channel_2;                                             //Normally channel_2 is the pid_pitch_setpoint input.
@@ -588,6 +644,7 @@ void loop() {
     }
   }
 
+
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   //Creating the pulses for the ESC's is explained in this video:
   //https://youtu.be/Nju9rvZOjVQ
@@ -625,12 +682,19 @@ void loop() {
     esc_4 = 1000;                                                                  //If start is not 2 keep a 1000us pulse for ess-4.
   }
 
-
+/*
   TIMER4_BASE->CCR1 = esc_1;                                                       //Set the throttle receiver input pulse to the ESC 1 output pulse.
   TIMER4_BASE->CCR2 = esc_2;                                                       //Set the throttle receiver input pulse to the ESC 2 output pulse.
   TIMER4_BASE->CCR3 = esc_3;                                                       //Set the throttle receiver input pulse to the ESC 3 output pulse.
   TIMER4_BASE->CCR4 = esc_4;                                                       //Set the throttle receiver input pulse to the ESC 4 output pulse.
   TIMER4_BASE->CNT = 5000;                                                         //This will reset timer 4 and the ESC pulses are directly created.
+ */
+
+  pwm_1.setValue(esc_1*3/4);
+  pwm_2.setValue(esc_2*3/4);
+  pwm_3.setValue(esc_3*3/4);
+  pwm_4.setValue(esc_4*3/4);
+
 
   //send_telemetry_data();                                                           //Send telemetry data to the ground station.
 
@@ -641,15 +705,30 @@ void loop() {
   //the Q&A page:
   //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
 
-  if (micros() - loop_timer > 4050)error = 2;                                      //Output an error if the loop time exceeds 4050us.
+  if (micros() - loop_timer > 4050) {
+    error = 2;                                      //Output an error if the loop time exceeds 4050us.
+  }
+#if HAS_SERIAL
+  Serial.println(micros() - loop_timer);
+#endif
   while (micros() - loop_timer < 4000);                                            //We wait until 4000us are passed.
   loop_timer = micros();                                                           //Set the timer for the next loop.
 }
 
+//variables for reciever
+byte input[32];
+int cnt=0;
+char str[32];
+int pos[4];
+bool rfFlag=false;
+bool rfFirstChar=false;
+int count=0;
+
 bool getStickPositions() {
-  if (Serial10.available()) {
+  while (Serial10.available()) {
     int h = Serial10.read();
     //sprintf(str, "%x, ", h);
+    //Serial.print(str);
     if (h == 0x04) {
       rfFirstChar=true;
       cnt=0;
@@ -672,9 +751,10 @@ bool getStickPositions() {
       for (int i=0; i<4; i++) {
         pos[i] = input[21+i*2] + input[21+i*2+1] * 256;
       }
-      sprintf(str, "%d, %d, %d, %d ", pos[0],pos[1],pos[2],pos[3]);
-      //Serial.print(str);
-      //Serial.println("");
+      channel_1 = pos[0];
+      channel_2 = pos[1];
+      channel_3 = pos[2];
+      channel_4 = pos[3];
       return true;
     }
    }

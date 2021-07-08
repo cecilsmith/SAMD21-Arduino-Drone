@@ -1,14 +1,63 @@
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //These functions handle the red and green LEDs. The LEDs on the flip 32 are inverted. That is why a Flip32 test is needed.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*void red_led(int8_t level) {
-  if (flip32)digitalWrite(PB4, !level);    //If a Flip32 is used invert the output.
-  else digitalWrite(PB4, level);           //When using the BluePill the output should not be inverted.
+
+int8_t red_level=0, green_level=0;
+void red_led(int8_t level) {
+  return;
+  display.clearDisplay();
+  display.drawRect(0, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  red_level = level;
+  if (red_level) {
+    display.fillRect(0, 0, display.width()/4-1, display.height()-1, SSD1306_WHITE);
+  }
+  if (green_level) {
+    display.fillRect(display.width()/4*3-1, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  }
+  display.display();
 }
 void green_led(int8_t level) {
-  if (flip32)digitalWrite(PB3, !level);    //If a Flip32 is used invert the output.
-  else digitalWrite(PB3, level);           //When using the BluePill the output should not be inverted.
-}*/
+  return;
+  display.clearDisplay();
+  display.drawRect(0, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  green_level = level;
+  if (red_level) {
+    display.fillRect(0, 0, display.width()/4-1, display.height()-1, SSD1306_WHITE);
+  }
+  if (green_level) {
+    display.fillRect(display.width()/4*3-1, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  }
+  display.display();
+}
+
+void blink_red_led()
+{
+  display.clearDisplay();
+  display.drawRect(0, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  if (red_level) red_level=0; else red_level=1;
+  if (red_level) {
+    display.fillRect(0, 0, display.width()/4-1, display.height()-1, SSD1306_WHITE);
+  }
+  if (green_level) {
+    display.fillRect(display.width()/4*3-1, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  }
+  display.display();
+
+}
+void blink_green_led()
+{
+  display.clearDisplay();
+  display.drawRect(0, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  if (green_level) green_level=0; else green_level=1;
+  if (red_level) {
+    display.fillRect(0, 0, display.width()/4-1, display.height()-1, SSD1306_WHITE);
+  }
+  if (green_level) {
+    display.fillRect(display.width()/4*3-1, 0, display.width()-1, display.height()-1, SSD1306_WHITE);
+  }
+  display.display();
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //In this part the error LED signal is generated.

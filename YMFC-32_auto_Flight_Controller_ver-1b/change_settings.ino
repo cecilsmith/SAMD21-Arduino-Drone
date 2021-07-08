@@ -11,12 +11,15 @@ void change_settings(void) {
   adjustable_setting_2 = variable_2_to_adjust;
   adjustable_setting_3 = variable_3_to_adjust;
 
+/*
   for (error = 0; error < 150; error ++) {
-    /*delay(20);
-    send_telemetry_data();*/
+    delay(20);
+    send_telemetry_data();
   }
   error = 0;
+*/
 
+/*
   while (channel_6 >= 1900) {
     delayMicroseconds(3700);
     //send_telemetry_data();
@@ -35,6 +38,7 @@ void change_settings(void) {
     if (adjustable_setting_3 < 0)adjustable_setting_3 = 0;
     variable_3_to_adjust = adjustable_setting_3;
   }
+  */
   loop_timer = micros();                                                           //Set the timer for the next loop.
   red_led(LOW);
 }

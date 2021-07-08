@@ -6,6 +6,7 @@
 //STM32 for Arduino - Electronic Speed Controller (ESC) - STM32F103C8T6: https://youtu.be/Nju9rvZOjVQ
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void timer_setup(void) {
+  /*
   Timer2.attachCompare1Interrupt(handler_channel_1);
   TIMER2_BASE->CR1 = TIMER_CR1_CEN;
   TIMER2_BASE->CR2 = 0;
@@ -43,5 +44,5 @@ void timer_setup(void) {
   pinMode(PB7, PWM);
   pinMode(PB8, PWM);
   pinMode(PB9, PWM);
+  */
 }
-

@@ -2,7 +2,7 @@
 //In this part the GPS module is setup and read.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void gps_setup(void) {
-
+/*
   Serial1.begin(9600);
   delay(250);
 
@@ -23,9 +23,11 @@ void gps_setup(void) {
 
   Serial1.begin(57600);
   delay(200);
+  */
 }
 
 void read_gps(void) {
+  /*
   while (Serial1.available() && new_line_found == 0) {                                                   //Stay in this loop as long as there is serial information from the GPS available.
     char read_serial_byte = Serial1.read();                                                              //Load a new serial byte in the read_serial_byte variable.
     if (read_serial_byte == '$') {                                                                       //If the new byte equals a $ character.
@@ -210,5 +212,5 @@ void read_gps(void) {
       gps_rotating_mem_location = 0;
     }
   }
+  */
 }
-

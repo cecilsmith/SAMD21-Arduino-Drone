@@ -20,8 +20,8 @@ void gyro_setup(void) {
   Wire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
   Wire.write(0x1A);                                            //We want to write to the CONFIG register (1A hex).
   Wire.write(0x03);                                            //Set the register bits as 00000011 (Set Digital Low Pass Filter to ~43Hz).
-  Wire.endTransmission();                                      //End the transmission with the gyro.*/
-
+  Wire.endTransmission();                                      //End the transmission with the gyro.
+*/
   acc_pitch_cal_value  = EEPROM.read(0x16);
   acc_roll_cal_value  = EEPROM.read(0x17);
 }
@@ -34,7 +34,7 @@ void calibrate_gyro(void) {
   if (cal_int != 2000) {
     //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
     for (cal_int = 0; cal_int < 2000 ; cal_int ++) {                                  //Take 2000 readings for calibration.
-      if (cal_int % 25 == 0) digitalWrite(PB4, !digitalRead(PB4));                    //Change the led status every 125 readings to indicate calibration.
+      if (cal_int % 25 == 0) blink_red_led();                                         //Change the led status every 125 readings to indicate calibration.
       gyro_signalen();                                                                //Read the gyro output.
       gyro_roll_cal += gyro_roll;                                                     //Ad roll value to gyro_roll_cal.
       gyro_pitch_cal += gyro_pitch;                                                   //Ad pitch value to gyro_pitch_cal.
@@ -70,10 +70,10 @@ void gyro_signalen(void) {
   //BNO055 specific code:
   bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
   bno.getEvent(&angVelocityData, Adafruit_BNO055::VECTOR_GYROSCOPE);
-  bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
-  bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
+  //bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
+  //bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
   bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-  bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
+  //bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
  
   acc_y = accelerometerData.acceleration.x;              //Add the low and high byte to the acc_x variable.
   acc_x = accelerometerData.acceleration.y;              //Add the low and high byte to the acc_y variable.
@@ -93,8 +93,8 @@ void gyro_signalen(void) {
 
   //Why 0, 2, 3? Should it be 0, 1, 2?
   orientation[0] = orientationData.orientation.x;
-  orientation[2] = orientationData.orientation.y;
-  orientation[3] = orientationData.orientation.z;
+  orientation[1] = orientationData.orientation.y;
+  orientation[2] = orientationData.orientation.z;
 
 /*
   Serial.print(orientationData.orientation.x);Serial.print(", ");

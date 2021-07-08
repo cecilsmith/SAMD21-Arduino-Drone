@@ -21,7 +21,7 @@ void calibrate_compass(void) {
 
   //The maximum and minimum values are needed for the next startup and are stored
   for (error = 0; error < 6; error ++) EEPROM.write(0x10 + error, compass_cal_values[error]);
-
+  EEPROM.commit();
   setup_compass();                                                           //Initiallize the compass and set the correct registers.
   read_compass();                                                            //Read and calculate the compass data.
   angle_yaw = actual_compass_heading;                                        //Set the initial compass heading.
@@ -70,6 +70,7 @@ void calibrate_level(void) {
   if (error < 80) {
     EEPROM.write(0x16, acc_pitch_cal_value);
     EEPROM.write(0x17, acc_roll_cal_value);
+    EEPROM.commit();
     //EEPROM.write(0x10 + error, compass_cal_values[error]);
     for (error = 0; error < 15; error ++) {
       /*green_led(HIGH);
