@@ -308,7 +308,7 @@ void setup() {
   pinPeripheral(0, PIO_SERCOM); //Assign TX function to pin 0
 
   Serial10.begin(115200); //RC eceiver UART
-  Serial1.begin(112500);  //Lidar UART
+  Serial1.begin(115200);  //Lidar UART
 
   // Initialize PWM
   //change frequnecy to 250Hz for all channels
