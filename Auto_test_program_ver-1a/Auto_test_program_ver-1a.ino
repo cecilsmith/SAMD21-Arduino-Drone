@@ -113,7 +113,7 @@ uint8_t MS5611_address = 0x77;             //The I2C address of the MS5611 barom
 uint8_t compass_address = 0x1E;            //The I2C address of the HMC5883L is 0x1E in hexadecimal form.
 */
 
-//Create an instance for pwm_1 on pin PA20 in inverted mode
+//Create an instance for channel_1 on pin PA20 in inverted mode
 DimmerZero pwm_1(4,false);
 //Create an instance for pwm_2 on pin PA21 in inverted mode
 DimmerZero pwm_2(2,false);
@@ -156,17 +156,14 @@ void setup() {
   //Port PB3 and PB4 are used as JTDO and JNTRST by default.
   //The following function connects PB3 and PB4 to the alternate output function.
   afio_cfg_debug_ports(AFIO_DEBUG_SW_ONLY);                     //Connects PB3 and PB4 to output function.
-
   //On the Flip32 the LEDs are connected differently. A check is needed for controlling the LEDs.
   pinMode(PB3, INPUT);                                         //Set PB3 as input.
   pinMode(PB4, INPUT);                                         //Set PB4 as input.
   if (digitalRead(PB3) && digitalRead(PB4))flip32 = 1;         //Input PB3 and PB4 are high on the Flip32
   else flip32 = 0;
   flip32 = 0;
-
   pinMode(PB3, OUTPUT);                                         //Set PB3 as output.
   pinMode(PB4, OUTPUT);                                         //Set PB4 as output.
-
   green_led(LOW);                                               //Set output PB3 low.
   red_led(LOW);                                                 //Set output PB4 low.
 */
@@ -247,17 +244,14 @@ void setup() {
   Wire.write(0x6B);                                            //We want to write to the PWR_MGMT_1 register (6B hex).
   Wire.write(0x00);                                            //Set the register bits as 00000000 to activate the gyro.
   Wire.endTransmission();                                      //End the transmission with the gyro.
-
   Wire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
   Wire.write(0x1B);                                            //We want to write to the GYRO_CONFIG register (1B hex).
   Wire.write(0x08);                                            //Set the register bits as 00001000 (500dps full scale).
   Wire.endTransmission();                                      //End the transmission with the gyro.
-
   Wire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
   Wire.write(0x1C);                                            //We want to write to the ACCEL_CONFIG register (1A hex).
   Wire.write(0x10);                                            //Set the register bits as 00010000 (+/- 8g full scale range).
   Wire.endTransmission();                                      //End the transmission with the gyro.
-
   Wire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
   Wire.write(0x1A);                                            //We want to write to the CONFIG register (1A hex).
   Wire.write(0x03);                                            //Set the register bits as 00000011 (Set Digital Low Pass Filter to ~43Hz).
@@ -456,8 +450,6 @@ void red_led(int8_t level) {
 }
 
 void green_led(int8_t level) {
-  if (flip32)digitalWrite(PB3, !level);
-  else digitalWrite(PB3, level);
 }
   
 bool getStickPositions() {
