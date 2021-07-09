@@ -37,4 +37,4 @@ This program utilizes IMU, GPS, and LiDAR data to fly an Arduino based drone on 
 #### **Only Tested on MKR WiFi 1010 Board**
 
 MKR WiFi 1010 Pinout Info:
-~TBA~
+ * TBA
